@@ -14,10 +14,7 @@ jobs:
         run: |
           git lfs pull --include="models/perci-cognitive-v0.3.pwgt" --exclude=""
           test -s models/perci-cognitive-v0.3.pwgt
-          if grep -aqm1 '^version https://git-lfs.github.com/spec/v1/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo test --locked --lib
- models/perci-cognitive-v0.3.pwgt; then
+          if grep -aqm1 '^version https://git-lfs.github.com/spec/v1$' models/perci-cognitive-v0.3.pwgt; then
             echo "Expected model weights, got a Git LFS pointer" >&2
             exit 1
           fi
