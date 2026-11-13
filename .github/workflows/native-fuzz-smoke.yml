@@ -1,0 +1,59 @@
+name: Perci Bounded Native Fuzz Smoke
+
+on:
+  pull_request:
+    paths:
+      - "fuzz/**"
+      - "tests/test_fuzz_seeds.py"
+      - "src/cognitive.rs"
+      - "src/pack_manifest.rs"
+      - ".github/workflows/native-fuzz-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-fuzz:
+    name: Native binary + JSON parser fuzz (bounded)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+      - name: Verify deterministic, malicious-input seed contract
+        run: |
+          python3 -m unittest discover -s tests -p 'test_fuzz_seeds.py' -v
+          python3 fuzz/seed_corpus.py
+          python3 fuzz/seed_corpus.py --check
+      - name: Install cargo-fuzz and record toolchain versions
+        run: |
+          cargo install cargo-fuzz --locked
+          rustc +nightly --version
+          cargo +nightly --version
+          cargo +nightly fuzz --version
+      - name: Fuzz real mmap-based W01/W02/W03 loader (short ASan campaign)
+        run: |
+          cargo +nightly fuzz run perciw03_loader -- \
+            -runs=1500 -max_total_time=20 -max_len=8192 \
+            -timeout=3 -rss_limit_mb=1024
+      - name: Fuzz actual Rust JSON sidecar parser (separate format)
+        run: |
+          cargo +nightly fuzz run pack_manifest_json -- \
+            -runs=1500 -max_total_time=20 -max_len=16384 \
+            -timeout=3 -rss_limit_mb=1024
+      - name: Preserve crash artifacts for review
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perci-fuzz-failure-corpus
+          path: fuzz/artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -25,6 +25,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Verify corrupted and untrusted manifests fail closed
         run: python -m unittest discover -s tests -p 'test_package_manifest.py' -v
+      - name: Validate deterministic native fuzz seeds (no nightly/compiler required)
+        run: |
+          python -m unittest discover -s tests -p 'test_fuzz_seeds.py' -v
+          python fuzz/seed_corpus.py --root "${{ runner.temp }}/perci-seed-corpus"
+          python fuzz/seed_corpus.py --root "${{ runner.temp }}/perci-seed-corpus" --check
 
   rust:
     name: Rust compile and unit tests

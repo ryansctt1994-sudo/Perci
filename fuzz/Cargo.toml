@@ -1,0 +1,27 @@
+[package]
+name = "perci-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+perci = { path = ".." }
+serde_json = "1"
+
+[[bin]]
+name = "perciw03_loader"
+path = "fuzz_targets/perciw03_loader.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pack_manifest_json"
+path = "fuzz_targets/pack_manifest_json.rs"
+test = false
+doc = false
+bench = false
