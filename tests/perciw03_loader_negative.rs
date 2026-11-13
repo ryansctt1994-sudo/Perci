@@ -47,7 +47,7 @@ fn actual_loader_rejects_bad_magic_and_untrusted_dimensions() {
     }
     // Specific valid-magic, malformed-header attacks.
     for (name, offset, byte) in [
-        ("bit_width", 12usize, 0u8),
+        ("bit_width", 13usize, 0u8),
         ("word_count", 16usize, 0u8),
         ("label_table", 20usize, 1u8),
         ("record_count", 24usize, 1u8),
