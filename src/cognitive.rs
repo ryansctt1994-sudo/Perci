@@ -209,6 +209,16 @@ impl CognitiveWeights {
         if !matches!(version, 1 | VERSION_V2 | VERSION_V3) {
             return Err(invalid(format!("unsupported weight version {version}")));
         }
+        // The eight-byte magic and declared version are a single format
+        // identity. Do not interpret V2 bytes as a V3 (or V1) header.
+        let signature = &data[0..8];
+        let magic_matches_version = (signature == MAGIC_V1 && version == 1)
+            || (signature == MAGIC_V2 && version == VERSION_V2)
+            || (signature == MAGIC_V3 && version == VERSION_V3);
+        if !magic_matches_version {
+            return Err(invalid("weight magic/version mismatch"));
+        }
+
         let has_signed_masks = matches!(version, VERSION_V2 | VERSION_V3)
             && (&data[0..8] == MAGIC_V2 || &data[0..8] == MAGIC_V3);
         let is_v3 = version == VERSION_V3 && &data[0..8] == MAGIC_V3;
