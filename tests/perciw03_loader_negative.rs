@@ -21,6 +21,17 @@ fn header_only() -> [u8; 80] {
 }
 
 #[test]
+fn native_loader_accepts_minimal_valid_v3_header_as_control() {
+    let path = temp_path();
+    fs::write(&path, header_only()).expect("write test fixture");
+    let parsed = CognitiveWeights::load(&path).expect("valid zero-record header");
+    assert_eq!(parsed.version(), 3);
+    assert_eq!(parsed.prototype_count(), 0);
+    drop(parsed);
+    fs::remove_file(path).expect("clean up");
+}
+
+#[test]
 fn actual_loader_rejects_all_truncated_fixed_headers() {
     let path = temp_path();
     let fixture = header_only();
