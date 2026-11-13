@@ -45,6 +45,15 @@ fn actual_loader_rejects_bad_magic_and_untrusted_dimensions() {
         fs::write(&path, bytes).expect("write test fixture");
         assert!(CognitiveWeights::load(&path).is_err(), "bad magic byte {offset}");
     }
+    // Regression for unbounded Vec::with_capacity(label_count). A short
+    // file must reject this forged count without an allocation attempt.
+    let mut enormous_labels = valid;
+    enormous_labels[20..24].copy_from_slice(&u32::MAX.to_le_bytes());
+    fs::write(&path, enormous_labels).expect("write test fixture");
+    assert!(
+        CognitiveWeights::load(&path).is_err(),
+        "enormous declared label_count must fail before memory reservation"
+    );
     // Specific valid-magic, malformed-header attacks.
     for (name, offset, byte) in [
         ("bit_width", 13usize, 0u8),
