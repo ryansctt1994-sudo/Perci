@@ -19,6 +19,42 @@ class PackageManifestTests(unittest.TestCase):
         entry = {**GOOD, **changes}
         return validate_manifest_entries({"artifacts": [entry]})
 
+    def test_checked_in_manifest_all_artifacts_validate(self):
+        """Validate the actual package schema without fetching multi-GB LFS blobs."""
+        manifest = json.loads((ROOT / "models/PACKAGE_MANIFEST.json").read_text(encoding="utf-8"))
+        entries = validate_manifest_entries(manifest)
+        self.assertEqual(manifest["schema"], "perci.package-manifest.v1")
+        self.assertEqual(len(entries), 6)
+        self.assertEqual(len({e["path"] for e in entries}), len(entries))
+        self.assertEqual(
+            {e["format"] for e in entries},
+            {"PERCIW01", "PERCIW02", "PERCIW03", "PERCLNG1", "PERCPHR1", "PERCDLG1"}
+        )
+
+    def test_real_manifest_each_artifact_mutations_fail_closed(self):
+        """Probe every real artifact entry, not just a synthetic PERCIW03 weight."""
+        original = json.loads((ROOT / "models/PACKAGE_MANIFEST.json").read_text(encoding="utf-8"))
+        for index, artifact in enumerate(original["artifacts"]):
+            for field, replacement in (
+                ("path", "models/../escape.pwgt"),
+                ("path", "models\\windows.pwgt"),
+                ("bytes", -1),
+                ("bytes", True),
+                ("sha256", "0" * 63),
+                ("format", "UNKNOWN00"),
+            ):
+                with self.subTest(index=index, field=field, value=replacement):
+                    mutated = copy.deepcopy(original)
+                    mutated["artifacts"][index][field] = replacement
+                    with self.assertRaises(ValueError):
+                        validate_manifest_entries(mutated)
+
+    def test_real_manifest_duplicate_injection_rejected(self):
+        manifest = json.loads((ROOT / "models/PACKAGE_MANIFEST.json").read_text(encoding="utf-8"))
+        manifest["artifacts"].append(copy.deepcopy(manifest["artifacts"][0]))
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            validate_manifest_entries(manifest)
+
     def test_valid_metadata(self):
         self.assertEqual(len(self.validate()), 1)
 
