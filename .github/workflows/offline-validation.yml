@@ -14,9 +14,28 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: false
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Cargo test (locked, no production models)
+      - name: Fetch active LFS weight artifact for model-dependent unit tests
+        run: |
+          git lfs install --local
+          git lfs pull --include="models/perci-cognitive-v0.3.pwgt" --exclude=""
+      - name: Verify active weight SHA-256 against package manifest
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib
+          manifest=json.loads(pathlib.Path("models/PACKAGE_MANIFEST.json").read_text())
+          item=next(x for x in manifest["artifacts"] if x["kind"] == "active_associative_weights")
+          path=pathlib.Path(item["path"])
+          with path.open("rb") as fd:
+              digest=hashlib.file_digest(fd, "sha256").hexdigest()
+          assert path.stat().st_size == item["bytes"], "LFS artifact has incorrect size"
+          assert digest == item["sha256"], "LFS artifact failed SHA-256 validation"
+          print("Active weight artifact verified")
+          PY
+      - name: Cargo test (locked, model-dependent tests enabled)
         run: cargo test --locked --all-targets
 
   cortex:
