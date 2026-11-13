@@ -238,6 +238,14 @@ impl CognitiveWeights {
             return Err(invalid("weight file ends inside the prototype matrix"));
         }
 
+        // Untrusted header counts must be bounded by the actual header bytes
+        // before reserving memory. Without this, corrupt PERCIW03 files can
+        // request multi-terabyte allocations and abort the entire process.
+        let available_label_bytes = header_size - FIXED_HEADER;
+        if label_count > available_label_bytes / label_entry_size {
+            return Err(invalid("label table exceeds the weight header"));
+        }
+
         let mut labels = Vec::with_capacity(label_count);
         let mut offset = FIXED_HEADER;
         for expected_id in 0..label_count {
