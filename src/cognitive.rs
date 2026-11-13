@@ -209,6 +209,16 @@ impl CognitiveWeights {
         if !matches!(version, 1 | VERSION_V2 | VERSION_V3) {
             return Err(invalid(format!("unsupported weight version {version}")));
         }
+        // The eight-byte magic and declared version are a single format
+        // identity. Do not interpret V2 bytes as a V3 (or V1) header.
+        let signature = &data[0..8];
+        let magic_matches_version = (signature == MAGIC_V1 && version == 1)
+            || (signature == MAGIC_V2 && version == VERSION_V2)
+            || (signature == MAGIC_V3 && version == VERSION_V3);
+        if !magic_matches_version {
+            return Err(invalid("weight magic/version mismatch"));
+        }
+
         let has_signed_masks = matches!(version, VERSION_V2 | VERSION_V3)
             && (&data[0..8] == MAGIC_V2 || &data[0..8] == MAGIC_V3);
         let is_v3 = version == VERSION_V3 && &data[0..8] == MAGIC_V3;
@@ -236,6 +246,14 @@ impl CognitiveWeights {
             .ok_or_else(|| invalid("weight dimensions overflow address space"))?;
         if expected_minimum > data.len() {
             return Err(invalid("weight file ends inside the prototype matrix"));
+        }
+
+        // Untrusted header counts must be bounded by the actual header bytes
+        // before reserving memory. Without this, corrupt PERCIW03 files can
+        // request multi-terabyte allocations and abort the entire process.
+        let available_label_bytes = header_size - FIXED_HEADER;
+        if label_count > available_label_bytes / label_entry_size {
+            return Err(invalid("label table exceeds the weight header"));
         }
 
         let mut labels = Vec::with_capacity(label_count);
